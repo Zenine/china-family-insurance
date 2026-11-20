@@ -378,11 +378,17 @@
       white-space: nowrap;
     }
 
-    td:first-child { min-width: 200px; font-weight: 700; }
+    td { overflow-wrap: break-word; }
+    td:first-child { min-width: 180px; font-weight: 700; }
     tbody tr:hover { background: rgba(49, 95, 125, .05); }
-    td.amount { min-width: 64px; }
-    td.premium { min-width: 96px; }
-    td.advice { min-width: 180px; }
+    td.amount { min-width: 56px; }
+    td.premium { min-width: 72px; }
+    td.advice { min-width: 160px; }
+
+    .policy-resources {
+      margin-top: 6px;
+      font-weight: 400;
+    }
 
     .policy-id {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -539,11 +545,10 @@
     const PENDING = "待补";
     const KINDS = ["寿险", "重疾", "医疗", "意外", "年金"];
     // 档位配色的唯一来源：总览、明细档位、保单档位都查这张表。
-    // 第三项是「核保」开头那一档，写成 \u 转义：明文页面里不出现这个档位的字面，隐私检查可以直接按字面搜。
     const TIER_CLASS = {
       "充分": "ok",
       "一般": "warn",
-      "\u6838\u4fdd\u53d7\u9650": "warn",
+      "核保受限": "warn",
       "不足": "bad",
       "缺资料": "muted",
       "不适用": "muted"
@@ -641,7 +646,7 @@
 
     function renderPolicyResources(policy) {
       const html = [policy.contacts, policy.links, policy.documents].map(renderLinkList).filter(Boolean).join("");
-      return html || `<span class="member-note">${PENDING}</span>`;
+      return `<div class="policy-resources">${html || `<span class="member-note">联系方式：${PENDING}</span>`}</div>`;
     }
 
     function renderPolicies(member) {
@@ -651,28 +656,26 @@
           <table>
             <thead>
               <tr>
-                <th>保单</th>
+                <th>保单 / 联系方式</th>
                 <th>险种 / 档位</th>
                 <th>保单号</th>
                 <th>保额</th>
                 <th>年保费</th>
                 <th>保障期限</th>
                 <th>生效日 / 下次交费日</th>
-                <th>联系方式</th>
                 <th>调整建议</th>
               </tr>
             </thead>
             <tbody>
               ${member.policies.map((policy) => `
                 <tr>
-                  <td data-label="保单">${escapeHtml(policy.name)}<br><span class="member-note">${escapeHtml(policy.company)} · ${escapeHtml(policy.code)}</span></td>
+                  <td data-label="保单">${escapeHtml(policy.name)}<br><span class="member-note">${escapeHtml(policy.company)} · ${escapeHtml(policy.code)}</span>${renderPolicyResources(policy)}</td>
                   <td data-label="险种 / 档位"><span class="badge plain">${escapeHtml(policy.type)}</span> <span class="badge ${tierClass(policy.status)}">${escapeHtml(policy.status)}</span></td>
                   <td data-label="保单号" class="policy-id">${escapeHtml(policy.policyId)}</td>
                   <td data-label="保额" class="amount">${escapeHtml(policy.sumInsured)}</td>
                   <td data-label="年保费" class="premium">${escapeHtml(policy.premium)}</td>
                   <td data-label="保障期限">${escapeHtml(policy.term)}</td>
                   <td data-label="生效日 / 下次交费日">${escapeHtml(policy.renewal)}</td>
-                  <td data-label="联系方式">${renderPolicyResources(policy)}</td>
                   <td data-label="调整建议" class="advice">${escapeHtml(policy.note)}</td>
                 </tr>
               `).join("")}

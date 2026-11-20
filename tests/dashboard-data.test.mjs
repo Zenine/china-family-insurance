@@ -85,7 +85,7 @@ test('detail 字段齐全，缺失字段为待补', async () => {
     sumInsured: '200 万',
     policyId: '末 4 位 0001',
     note: '每年到期前确认续保',
-    contacts: [{ label: '客服电话：400-000-0001', href: 'tel:400-000-0001' }],
+    contacts: [{ label: '客服电话：400-000-0001', href: 'tel:4000000001' }],
     links: [],
     documents: []
   });
@@ -201,11 +201,30 @@ const MATRIX_HEAD = '| 成员 | 寿险 | 重疾 | 医疗 | 意外 | 年金 |\n| 
 test('多个客服电话时 href 只取第一个号码，显示保留原文', async () => {
   await withPolicy('- 客服电话：400-000-0001 / 95500（转 2）\n', `${MATRIX_HEAD}| self | 充分 | 充分 | 充分 | 充分 | 充分 |\n`, ({ detail, warnings }) => {
     assert.deepEqual(detail.members[0].policies[0].contacts, [
-      { label: '客服电话：400-000-0001 / 95500（转 2）', href: 'tel:400-000-0001' }
+      { label: '客服电话：400-000-0001 / 95500（转 2）', href: 'tel:4000000001' }
     ]);
     assert.deepEqual(warnings, []);
   });
 });
+
+for (const [phone, href] of [
+  ['400 000 0001', 'tel:4000000001'],
+  ['95500、400-820-2288', 'tel:95500'],
+  ['95500 转 1', 'tel:95500'],
+  ['95500／400-820-2288', 'tel:95500'],
+  ['95500；400-820-2288', 'tel:95500'],
+  ['95500，400-820-2288', 'tel:95500'],
+  ['95500 或 400-820-2288', 'tel:95500'],
+  ['+86 571 8888 0000', 'tel:+8657188880000'],
+  ['工作日 95500（转 2）', 'tel:95500'],
+  ['人工／95500', 'tel:95500']
+]) {
+  test(`客服电话「${phone}」的 href 为 ${href}，显示保留原文`, async () => {
+    await withPolicy(`- 客服电话：${phone}\n`, `${MATRIX_HEAD}| self | 充分 | 充分 | 充分 | 充分 | 充分 |\n`, ({ detail }) => {
+      assert.deepEqual(detail.members[0].policies[0].contacts, [{ label: `客服电话：${phone}`, href }]);
+    });
+  });
+}
 
 test('矩阵行对不上成员、档位认不出时给出警告', async () => {
   await withPolicy('- 产品全称：P\n', `${MATRIX_HEAD}| self | 充分 | 很好 | 充分 | 充分 | 充分 |\n| uncle | 充分 | 充分 | 充分 | 充分 | 充分 |\n`, ({ warnings }) => {

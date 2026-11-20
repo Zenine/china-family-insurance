@@ -8,25 +8,19 @@ import { fileURLToPath } from 'node:url';
 import { decryptPayload } from '../scripts/lib/crypto.mjs';
 import { buildDashboardData } from '../scripts/lib/dashboard-data.mjs';
 import { KINDS, TIERS, parseGapMatrix } from '../scripts/lib/ledger.mjs';
+import { OVERVIEW_TIERS, assertPagePrivate, detailSecrets, extractConst } from './helpers/page-privacy.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const DEMO = path.join(REPO, 'examples', 'demo-family');
 const BUILD = path.join(REPO, 'scripts', 'build-dashboard.mjs');
 const SCAN = path.join(REPO, 'scripts', 'privacy-scan.mjs');
 const PASSPHRASE = 'demo-2026';
-const OVERVIEW_TIERS = ['充分', '一般', '不足', '缺资料', '不适用'];
 
 // 测试可能在 git 钩子里运行，子进程不得继承 GIT_* 变量。
 function cleanEnv(extra = {}) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
   delete env.DASHBOARD_PASSPHRASE;
   return { ...env, ...extra };
-}
-
-function extractConst(html, name) {
-  const match = new RegExp(`^\\s*const ${name} = (.*);$`, 'm').exec(html);
-  assert.ok(match, `缺少注入行 ${name}`);
-  return JSON.parse(match[1]);
 }
 
 function overviewTiers(overview) {
@@ -55,9 +49,9 @@ test('示例家庭：用演示口令构建成功，总览出现除核保受限�
     const overview = extractConst(html, 'DASHBOARD_OVERVIEW');
     assert.equal(overview.members.length, 6);
     assert.deepEqual(overviewTiers(overview), new Set(OVERVIEW_TIERS));
-    assert.equal(html.includes('核保受限'), false);
-    assert.equal(html.includes('见明细'), false);
-    assert.equal(html.includes('示例人寿'), false);
+    const secrets = detailSecrets((await buildDashboardData(library)).detail);
+    assert.ok(secrets.some((value) => value.includes('示例人寿')));
+    assertPagePrivate(html, secrets);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -69,6 +63,7 @@ test('示例家庭：已提交的 site/index.html 与台账一致，演示口令
   assert.deepEqual(extractConst(html, 'DASHBOARD_OVERVIEW').members, overview.members);
   const payload = extractConst(html, 'ENCRYPTED_DASHBOARD');
   assert.deepEqual(JSON.parse(await decryptPayload(payload, PASSPHRASE)), detail);
+  assertPagePrivate(html, detailSecrets(detail));
 });
 
 test('examples/ 隐私扫描零命中', () => {

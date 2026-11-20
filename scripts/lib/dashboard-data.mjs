@@ -73,13 +73,16 @@ function maskPolicyId(value) {
   return match ? `末 4 位 ${match[1]}` : PENDING;
 }
 
-// 显示保留原文；href 只取第一段连续的号码字符，多个号码时只拨第一个。
+// 多个号码之间的分隔：、 / ／ ; ； , ， 或 转。
+const PHONE_SEPARATOR = /[、\/／;；,，]|或|转/;
+
+// 显示保留原文；href 只拨第一个含数字的号码：号码内可含空格、连字符与开头的 +，拨号时去掉空格与连字符。
 function buildContacts(phone) {
   if (!phone || !phone.trim() || phone.trim() === PENDING) return [];
   const value = phone.trim();
-  const first = /\+?\d[\d-]*\d|\d/.exec(value);
+  const first = value.split(PHONE_SEPARATOR).map((part) => /\+?\d[\d -]*\d|\d/.exec(part)).find(Boolean);
   const contact = { label: `客服电话：${value}` };
-  if (first) contact.href = `tel:${first[0]}`;
+  if (first) contact.href = `tel:${first[0].replace(/[ -]/g, '')}`;
   return [contact];
 }
 

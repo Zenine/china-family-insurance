@@ -8,10 +8,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decryptPayload } from '../scripts/lib/crypto.mjs';
 import { buildDashboardData } from '../scripts/lib/dashboard-data.mjs';
+import { assertPagePrivate, assertTemplateTermOnce, detailSecrets, extractConst } from './helpers/page-privacy.mjs';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/mini-library', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('../scripts/build-dashboard.mjs', import.meta.url));
-const SENSITIVE = ['示例医疗 A', '示例意外 B', '示例重疾 C', '示例保险甲', '400-000-0001', '400-000-0003', '核保受限', '见明细'];
+const SENSITIVE = ['示例医疗 A', '示例意外 B', '示例重疾 C', '示例保险甲', '400-000-0001', '400-000-0003'];
 
 // 测试可能在 git 钩子里运行，子进程不得继承 GIT_* 变量。
 function cleanEnv(extra = {}) {
@@ -34,12 +35,6 @@ function runBuild(library, env, extraArgs = []) {
 function git(cwd, ...args) {
   const result = spawnSync('git', args, { cwd, env: cleanEnv(), encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-}
-
-function extractConst(html, name) {
-  const match = new RegExp(`^\\s*const ${name} = (.*);$`, 'm').exec(html);
-  assert.ok(match, `缺少注入行 ${name}`);
-  return JSON.parse(match[1]);
 }
 
 function bytes(base64) {
@@ -78,7 +73,9 @@ test('构建写出总览页：明文总览 + 可解密明细，且不泄露敏�
     assert.deepEqual(JSON.parse(await decryptPayload(payload, 'test-pass')), detail);
     assert.deepEqual(JSON.parse(await webCryptoDecrypt(payload, 'test-pass')), detail);
 
-    for (const text of SENSITIVE) assert.equal(html.includes(text), false, `HTML 含敏感文本 ${text}`);
+    const secrets = detailSecrets(detail);
+    for (const text of SENSITIVE) assert.ok(secrets.includes(text), `明细应含 ${text}`);
+    assertPagePrivate(html, secrets);
     assert.equal(html.includes('undefined'), false);
     assert.ok(html.includes('<title>家庭保险总览</title>'));
   } finally {
@@ -178,7 +175,7 @@ test('--out 指向库目录外时拒绝并退出码 2，不写文件', async () 
   }
 });
 
-test('模板档位配色只有一张表：一般与核保受限同为 warn，且不出现核保受限字面', async () => {
+test('模板档位配色只有一张表：一般与核保受限同为 warn，核保受限只作为配色表的键出现一次', async () => {
   const template = await readFile(fileURLToPath(new URL('../dashboard/index.html', import.meta.url)), 'utf8');
   const match = /const TIER_CLASS = (\{[\s\S]*?\});/.exec(template);
   assert.ok(match, '模板缺少 TIER_CLASS');
@@ -186,8 +183,7 @@ test('模板档位配色只有一张表：一般与核保受限同为 warn，且
   assert.equal(tierClass['一般'], 'warn');
   assert.equal(tierClass['核保受限'], 'warn');
   assert.equal(template.match(/TIER_CLASS = /g).length, 1);
-  assert.equal(template.includes('核保受限'), false);
-  assert.equal(template.includes('见明细'), false);
+  assertTemplateTermOnce(template);
 });
 
 test('矩阵行对不上成员时构建照常完成，stderr 打印警告', async () => {
