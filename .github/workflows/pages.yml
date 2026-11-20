@@ -1,0 +1,43 @@
+# 只把虚构示例家庭的总览页（examples/demo-family/site/）发布为在线演示。
+# 本 skill 不提供给用户库的部署脚本，这个工作流只服务本仓库的演示。
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "examples/demo-family/site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload demo site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: examples/demo-family/site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

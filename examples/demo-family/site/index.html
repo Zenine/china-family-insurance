@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>家庭保险总览</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f5ef;
+      --panel: #fffdf8;
+      --ink: #1f2a32;
+      --muted: #63707b;
+      --line: #d8d5ca;
+      --line-strong: #a9a397;
+      --green: #2f6f4f;
+      --blue: #315f7d;
+      --amber: #b17422;
+      --red: #9a4b42;
+      --paper-shadow: 0 16px 44px rgba(36, 42, 45, .12);
+      --radius: 8px;
+      --sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      --serif: "Songti SC", "Noto Serif CJK SC", "STSong", Georgia, serif;
+      font-family: var(--serif);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        linear-gradient(90deg, rgba(49, 95, 125, .06) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(49, 95, 125, .05) 1px, transparent 1px),
+        var(--bg);
+      background-size: 28px 28px;
+      color: var(--ink);
+    }
+
+    button, input { font: inherit; }
+
+    .app {
+      width: min(1220px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 420px);
+      gap: 22px;
+      align-items: start;
+      padding: 18px 0 22px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font: 700 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 64px);
+      line-height: .96;
+    }
+
+    .header-actions {
+      position: relative;
+      display: flex;
+      justify-content: flex-end;
+      justify-self: end;
+      width: 100%;
+      max-width: 220px;
+    }
+
+    .top-unlock { font-family: var(--sans); }
+
+    .unlock-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--ink);
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: #fffdf8;
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+
+    .unlock-toggle svg { width: 14px; height: 14px; flex: none; }
+    .unlock-toggle:hover { background: var(--blue); border-color: var(--blue); }
+    .unlock-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .unlock-toggle:disabled { opacity: .6; cursor: default; }
+    .unlock-toggle:disabled:hover { background: var(--ink); border-color: var(--ink); }
+
+    .unlock-popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 10;
+      width: min(360px, calc(100vw - 28px));
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, .98);
+      box-shadow: var(--paper-shadow);
+      padding: 12px;
+    }
+
+    .unlock-popover[hidden] { display: none; }
+
+    .unlock-hint {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .unlock-form {
+      display: grid;
+      grid-template-columns: minmax(160px, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .unlock-form input,
+    .search {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 11px 12px;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .unlock-form input:focus-visible,
+    .search:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .unlock-form button {
+      border: 1px solid var(--ink);
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: #fffdf8;
+      padding: 11px 14px;
+      cursor: pointer;
+    }
+
+    .unlock-form button:hover,
+    .unlock-form button:focus-visible { background: var(--blue); border-color: var(--blue); }
+
+    .unlock-message {
+      min-height: 20px;
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .unlock-message.error { color: var(--red); }
+
+    .overview-panel {
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, .94);
+      box-shadow: var(--paper-shadow);
+      margin: 18px 0;
+      padding: 16px;
+      font-family: var(--sans);
+    }
+
+    .overview-panel h2 {
+      margin: 0 0 10px;
+      font-family: var(--serif);
+      font-size: 26px;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+
+    .overview-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: rgba(246, 245, 239, .6);
+    }
+
+    .overview-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .legend {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 26px;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 650;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .badge b { font-weight: 500; opacity: .8; }
+    .badge.ok { color: #1f513b; background: rgba(47, 111, 79, .12); border-color: rgba(47, 111, 79, .3); }
+    .badge.warn { color: #7f4e18; background: rgba(177, 116, 34, .14); border-color: rgba(177, 116, 34, .32); }
+    .badge.bad { color: #893b34; background: rgba(154, 75, 66, .12); border-color: rgba(154, 75, 66, .3); }
+    .badge.muted { color: var(--muted); background: rgba(99, 112, 123, .08); border-color: rgba(99, 112, 123, .25); }
+    .badge.plain { color: var(--ink); background: transparent; border-color: var(--line-strong); font-weight: 500; }
+
+    .locked-detail[hidden] { display: none; }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      margin: 18px 0;
+      font-family: var(--sans);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: flex-end;
+    }
+
+    .filter {
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 8px 11px;
+      cursor: pointer;
+    }
+
+    .filter.active { background: var(--ink); color: #fffdf8; border-color: var(--ink); }
+
+    .filter:hover,
+    .member-button:hover { border-color: var(--ink); }
+
+    .filter:focus-visible,
+    .member-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    aside, .content { min-width: 0; }
+
+    .member-list {
+      display: grid;
+      gap: 8px;
+      position: sticky;
+      top: 12px;
+      font-family: var(--sans);
+    }
+
+    .member-button {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, .88);
+      padding: 11px 12px;
+      text-align: left;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .member-button.active { border-color: var(--ink); box-shadow: 5px 5px 0 rgba(31, 42, 50, .1); }
+
+    .member-button small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .count {
+      min-width: 28px;
+      min-height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #fffdf8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .member-section {
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, .94);
+      box-shadow: var(--paper-shadow);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .member-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .member-head h2 { margin: 0; font-size: 27px; line-height: 1.05; }
+
+    .member-note {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .gap-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--sans);
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(246, 245, 239, .72);
+      white-space: nowrap;
+    }
+
+    td:first-child { min-width: 200px; font-weight: 700; }
+    tbody tr:hover { background: rgba(49, 95, 125, .05); }
+    td.amount { min-width: 64px; }
+    td.premium { min-width: 96px; }
+    td.advice { min-width: 180px; }
+
+    .policy-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .resource-list {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .resource-list + .resource-list {
+      margin-top: 7px;
+      padding-top: 7px;
+      border-top: 1px dashed var(--line);
+    }
+
+    .resource-list li { color: var(--muted); line-height: 1.45; }
+
+    .resource-list a {
+      color: var(--blue);
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+      font-family: var(--sans);
+    }
+
+    .site-footer {
+      margin-top: 28px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line-strong);
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+
+    .site-footer p { margin: 0 0 4px; }
+
+    @media (max-width: 860px) {
+      header, .toolbar, .layout, .member-head { grid-template-columns: 1fr; }
+      .header-actions { justify-self: stretch; max-width: none; justify-content: flex-start; }
+      .unlock-popover { left: 0; right: auto; }
+      .filters, .gap-row { justify-content: flex-start; }
+      .member-list {
+        position: static;
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+      .member-button { flex: 0 0 auto; width: auto; }
+      .member-button small { display: none; }
+    }
+
+    @media (max-width: 720px) {
+      .table-wrap { overflow: visible; }
+      table, tbody, tr, td { display: block; }
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      tbody tr { padding: 10px 0; }
+      tbody tr:hover { background: transparent; }
+      td { border-bottom: none; padding: 5px 14px; }
+      td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 2px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      td:first-child { min-width: 0; }
+    }
+
+    @media (max-width: 560px) {
+      .app { width: min(100% - 18px, 1220px); padding-top: 14px; }
+      .unlock-form { grid-template-columns: 1fr; }
+      .unlock-popover { position: static; width: 100%; margin-top: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">Family Insurance / Overview</p>
+        <h1>家庭保险总览</h1>
+      </div>
+      <div class="header-actions">
+        <section class="top-unlock">
+          <button class="unlock-toggle" type="button" aria-expanded="false" aria-controls="unlock-panel" data-unlock-toggle><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>查看明细</button>
+          <div class="unlock-popover" id="unlock-panel" data-unlock-panel hidden>
+            <p class="unlock-hint">输入家庭口令，在本机浏览器内解密保单明细。</p>
+            <form class="unlock-form" data-unlock-form>
+              <input type="password" autocomplete="current-password" aria-label="家庭口令" placeholder="家庭口令" data-password>
+              <button type="submit">解锁</button>
+            </form>
+            <p class="unlock-message" data-unlock-message></p>
+          </div>
+        </section>
+      </div>
+    </header>
+
+    <section class="overview-panel" data-overview>
+      <h2>保障档位</h2>
+      <div class="overview-grid" data-overview-grid></div>
+      <p class="legend">档位：充分 / 一般 / 不足 / 缺资料 / 不适用；解锁后可看各档位的原因与保单明细。</p>
+    </section>
+
+    <section class="locked-detail" data-locked-detail hidden>
+      <section class="toolbar" aria-label="筛选保单">
+        <input class="search" type="search" placeholder="搜索成员、保单、公司、备注" aria-label="搜索保单" data-search>
+        <div class="filters">
+          <button class="filter active" type="button" data-type="all">全部</button>
+          <button class="filter" type="button" data-type="寿险">寿险</button>
+          <button class="filter" type="button" data-type="重疾">重疾</button>
+          <button class="filter" type="button" data-type="医疗">医疗</button>
+          <button class="filter" type="button" data-type="意外">意外</button>
+          <button class="filter" type="button" data-type="年金">年金</button>
+        </div>
+      </section>
+      <section class="layout">
+        <aside>
+          <nav class="member-list" data-member-list aria-label="成员"></nav>
+        </aside>
+        <section class="content" data-content></section>
+      </section>
+    </section>
+
+    <footer class="site-footer">
+      <p>明细经家庭口令加密，只在本机浏览器内解密。</p>
+      <p>生成日期：<span data-generated-at>待补</span></p>
+    </footer>
+  </main>
+
+  <script>
+    const DASHBOARD_OVERVIEW = {"generatedAt":"2026-11-20","members":[{"id":"self","name":"爸爸","coverage":{"寿险":"一般","重疾":"一般","医疗":"不足","意外":"一般","年金":"缺资料"}},{"id":"spouse","name":"妈妈","coverage":{"寿险":"不足","重疾":"充分","医疗":"充分","意外":"充分","年金":"不适用"}},{"id":"daughter","name":"妹妹","coverage":{"寿险":"不适用","重疾":"充分","医疗":"缺资料","意外":"不适用","年金":"不适用"}},{"id":"son","name":"哥哥","coverage":{"寿险":"不适用","重疾":"充分","医疗":"充分","意外":"缺资料","年金":"不适用"}},{"id":"father","name":"外公","coverage":{"寿险":"不适用","重疾":"不适用","医疗":"一般","意外":"充分","年金":"不适用"}},{"id":"mother","name":"外婆","coverage":{"寿险":"不适用","重疾":"不适用","医疗":"一般","意外":"不足","年金":"缺资料"}}]};
+    const ENCRYPTED_DASHBOARD = {"kdf":"PBKDF2","hash":"SHA-256","iterations":210000,"cipher":"AES-GCM","salt":"otIUjJqF8Y26XmwKh6FbnQ==","iv":"RS9Qren0+lnso8zF","ciphertext":"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"};
+
+    const PENDING = "待补";
+    const KINDS = ["寿险", "重疾", "医疗", "意外", "年金"];
+    // 档位配色的唯一来源：总览、明细档位、保单档位都查这张表。
+    // 第三项是「核保」开头那一档，写成 \u 转义：明文页面里不出现这个档位的字面，隐私检查可以直接按字面搜。
+    const TIER_CLASS = {
+      "充分": "ok",
+      "一般": "warn",
+      "\u6838\u4fdd\u53d7\u9650": "warn",
+      "不足": "bad",
+      "缺资料": "muted",
+      "不适用": "muted"
+    };
+
+    function tierClass(tier) {
+      return TIER_CLASS[show(tier)] || "muted";
+    }
+
+    let MEMBERS = [];
+    let detailControlsWired = false;
+    const state = { type: "all", query: "", member: "all" };
+
+    function show(value) {
+      return value === null || value === void 0 || String(value).trim() === "" ? PENDING : String(value);
+    }
+
+    function escapeHtml(value) {
+      return show(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function list(value) {
+      return Array.isArray(value) ? value : [];
+    }
+
+    function renderOverview() {
+      const grid = document.querySelector("[data-overview-grid]");
+      const members = list(DASHBOARD_OVERVIEW.members);
+      grid.innerHTML = members.map((member) => {
+        const coverage = member.coverage || {};
+        const chips = KINDS.map((kind) => {
+          const tier = show(coverage[kind]);
+          return `<span class="badge ${tierClass(tier)}"><b>${escapeHtml(kind)}</b>${escapeHtml(tier)}</span>`;
+        }).join("");
+        return `<div class="overview-card"><strong>${escapeHtml(member.name)}</strong><div class="chips">${chips}</div></div>`;
+      }).join("") || '<div class="empty">暂无成员。</div>';
+      document.querySelector("[data-generated-at]").textContent = show(DASHBOARD_OVERVIEW.generatedAt);
+    }
+
+    function matchesPolicy(policy, member) {
+      const typeMatched = state.type === "all" || show(policy.type).includes(state.type);
+      const text = [
+        member.name, member.role, policy.name, policy.code, policy.company,
+        policy.type, policy.policyId, policy.premium, policy.term, policy.note,
+        policy.sumInsured, policy.renewal
+      ].map(show).join(" ").toLowerCase();
+      return typeMatched && text.includes(state.query.toLowerCase());
+    }
+
+    function visibleMembers() {
+      return MEMBERS.map((member) => ({
+        ...member,
+        policies: list(member.policies).filter((policy) => matchesPolicy(policy, member))
+      })).filter((member) => {
+        if (state.member !== "all" && state.member !== member.id) return false;
+        if (state.query || state.type !== "all") return member.policies.length > 0;
+        return true;
+      });
+    }
+
+    function renderMemberList() {
+      const nav = document.querySelector("[data-member-list]");
+      const total = MEMBERS.reduce((sum, member) => sum + list(member.policies).length, 0);
+      const items = [
+        { id: "all", name: "全部成员", role: "查看所有保单", count: total },
+        ...MEMBERS.map((member) => ({ id: member.id, name: member.name, role: member.role, count: list(member.policies).length }))
+      ];
+      nav.innerHTML = items.map((item) => `
+        <button class="member-button ${state.member === item.id ? "active" : ""}" type="button" data-member="${escapeHtml(item.id)}">
+          <span>${escapeHtml(item.name)}<small>${escapeHtml(item.role)}</small></span>
+          <span class="count">${escapeHtml(item.count)}</span>
+        </button>
+      `).join("");
+      nav.querySelectorAll("[data-member]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.member = button.dataset.member;
+          render();
+        });
+      });
+    }
+
+    function renderLinkList(items) {
+      const entries = list(items);
+      if (entries.length === 0) return "";
+      return `<ul class="resource-list">${entries.map((item) => {
+        if (typeof item === "string") return `<li>${escapeHtml(item)}</li>`;
+        if (!item.href) return `<li>${escapeHtml(item.label)}</li>`;
+        return `<li><a href="${escapeHtml(item.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)}</a></li>`;
+      }).join("")}</ul>`;
+    }
+
+    function renderPolicyResources(policy) {
+      const html = [policy.contacts, policy.links, policy.documents].map(renderLinkList).filter(Boolean).join("");
+      return html || `<span class="member-note">${PENDING}</span>`;
+    }
+
+    function renderPolicies(member) {
+      if (member.policies.length === 0) return '<div class="empty">当前筛选下没有保单。</div>';
+      return `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>保单</th>
+                <th>险种 / 档位</th>
+                <th>保单号</th>
+                <th>保额</th>
+                <th>年保费</th>
+                <th>保障期限</th>
+                <th>生效日 / 下次交费日</th>
+                <th>联系方式</th>
+                <th>调整建议</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${member.policies.map((policy) => `
+                <tr>
+                  <td data-label="保单">${escapeHtml(policy.name)}<br><span class="member-note">${escapeHtml(policy.company)} · ${escapeHtml(policy.code)}</span></td>
+                  <td data-label="险种 / 档位"><span class="badge plain">${escapeHtml(policy.type)}</span> <span class="badge ${tierClass(policy.status)}">${escapeHtml(policy.status)}</span></td>
+                  <td data-label="保单号" class="policy-id">${escapeHtml(policy.policyId)}</td>
+                  <td data-label="保额" class="amount">${escapeHtml(policy.sumInsured)}</td>
+                  <td data-label="年保费" class="premium">${escapeHtml(policy.premium)}</td>
+                  <td data-label="保障期限">${escapeHtml(policy.term)}</td>
+                  <td data-label="生效日 / 下次交费日">${escapeHtml(policy.renewal)}</td>
+                  <td data-label="联系方式">${renderPolicyResources(policy)}</td>
+                  <td data-label="调整建议" class="advice">${escapeHtml(policy.note)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderContent() {
+      const content = document.querySelector("[data-content]");
+      content.innerHTML = visibleMembers().map((member) => `
+        <article class="member-section">
+          <div class="member-head">
+            <div>
+              <h2>${escapeHtml(member.name)}</h2>
+              <p class="member-note">${escapeHtml(member.role)}｜${escapeHtml(member.note)}</p>
+            </div>
+            <div class="gap-row">
+              ${list(member.gaps).map((gap) => `<span class="badge ${tierClass(gap.tier)}">${escapeHtml(gap.kind)}：${escapeHtml(gap.tier)}</span>`).join("")}
+            </div>
+          </div>
+          ${renderPolicies(member)}
+        </article>
+      `).join("") || '<div class="member-section empty">没有匹配结果。</div>';
+    }
+
+    function render() {
+      document.querySelectorAll("[data-type]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.type === state.type);
+      });
+      renderMemberList();
+      renderContent();
+    }
+
+    function base64ToBytes(value) {
+      return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+    }
+
+    async function unlockDetail(password) {
+      const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+      const key = await crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: base64ToBytes(ENCRYPTED_DASHBOARD.salt),
+          iterations: ENCRYPTED_DASHBOARD.iterations,
+          hash: ENCRYPTED_DASHBOARD.hash
+        },
+        material,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["decrypt"]
+      );
+      const plain = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: base64ToBytes(ENCRYPTED_DASHBOARD.iv) },
+        key,
+        base64ToBytes(ENCRYPTED_DASHBOARD.ciphertext)
+      );
+      return JSON.parse(new TextDecoder().decode(plain));
+    }
+
+    function wireDetailControls() {
+      if (detailControlsWired) return;
+      detailControlsWired = true;
+      document.querySelector("[data-search]").addEventListener("input", (event) => {
+        state.query = event.target.value.trim();
+        renderContent();
+      });
+      document.querySelectorAll("[data-type]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.type = button.dataset.type;
+          render();
+        });
+      });
+    }
+
+    const unlockToggle = document.querySelector("[data-unlock-toggle]");
+    const unlockPanel = document.querySelector("[data-unlock-panel]");
+
+    function closeUnlockPanel() {
+      unlockPanel.hidden = true;
+      unlockToggle.setAttribute("aria-expanded", "false");
+    }
+
+    unlockToggle.addEventListener("click", () => {
+      const willOpen = unlockPanel.hidden;
+      unlockPanel.hidden = !willOpen;
+      unlockToggle.setAttribute("aria-expanded", String(willOpen));
+      if (willOpen) document.querySelector("[data-password]").focus();
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!unlockPanel.hidden && !event.target.closest(".top-unlock")) closeUnlockPanel();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !unlockPanel.hidden) {
+        closeUnlockPanel();
+        unlockToggle.focus();
+      }
+    });
+
+    document.querySelector("[data-unlock-form]").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = document.querySelector("[data-unlock-message]");
+      const password = document.querySelector("[data-password]").value;
+      message.classList.remove("error");
+      if (!ENCRYPTED_DASHBOARD) {
+        message.classList.add("error");
+        message.textContent = "本页没有加密明细。";
+        return;
+      }
+      if (!window.crypto || !window.crypto.subtle) {
+        message.classList.add("error");
+        message.textContent = "当前浏览器不支持本地解密。";
+        return;
+      }
+      message.textContent = "正在解锁…";
+      try {
+        const detail = await unlockDetail(password);
+        MEMBERS = list(detail.members);
+        document.querySelector("[data-locked-detail]").hidden = false;
+        closeUnlockPanel();
+        unlockToggle.textContent = "已解锁";
+        unlockToggle.disabled = true;
+        message.textContent = "";
+        wireDetailControls();
+        render();
+      } catch (error) {
+        message.classList.add("error");
+        message.textContent = "口令不对，请重试";
+      }
+    });
+
+    renderOverview();
+  </script>
+</body>
+</html>
