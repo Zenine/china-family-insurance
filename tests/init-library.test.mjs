@@ -46,7 +46,7 @@ test('空目录生成完整库结构', async () => {
 
     for (const file of [
       'AGENTS.md', 'members/self.md', 'members/spouse.md', 'policies/_template.md',
-      'analysis/gap_matrix.md', 'TODO.md', 'CHANGELOG.md', '.gitignore', '资料收集清单.md'
+      'analysis/gap_matrix.md', 'TODO.md', 'CHANGELOG.md', '.gitignore', '资料收集清单.md', '新保单五查.md'
     ]) {
       assert.ok((await stat(path.join(lib, file))).isFile(), file);
     }
@@ -72,7 +72,22 @@ test('空目录生成完整库结构', async () => {
     assert.ok(decisions.includes('库内已定裁决优先于 skill 默认规则'));
     assert.ok(!decisions.includes('{{'));
 
+    const check = await readFile(path.join(lib, '新保单五查.md'), 'utf8');
+    assert.equal(check, await readFile(fileURLToPath(new URL('../templates/new-policy-check.md', import.meta.url)), 'utf8'));
+
     assert.match(result.stdout, /AGENTS\.md/);
+  });
+});
+
+test('已有的新保单五查.md 不被覆盖', async () => {
+  await withTempDir(async (root) => {
+    const lib = path.join(root, 'lib');
+    await mkdir(lib);
+    await writeFile(path.join(lib, '新保单五查.md'), '我的版本\n');
+    const result = runInit(lib);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await readFile(path.join(lib, '新保单五查.md'), 'utf8'), '我的版本\n');
+    assert.match(result.stdout, /新保单五查\.md/);
   });
 });
 

@@ -98,3 +98,28 @@ test('检查器自测', () => {
   assert.doesNotMatch('写进 `site/index.html` 与 `.private/dashboard-passphrase`', SLASH_COMMAND);
   assert.match('Bash(node x)', TOOL_CALL);
 });
+
+test('推荐模板含待补资料、已定裁决等栏目，五查模板五项齐全', async () => {
+  const rec = await read('templates/recommendation.md');
+  for (const heading of ['硬期限', '待补资料', '沿用的已定裁决', '待确认问题', '价格来源与查询日期']) {
+    assert.match(rec, new RegExp(`^## ${heading}$`, 'm'), heading);
+  }
+  assert.ok(rec.includes('决策记录.md'));
+  assert.ok(rec.includes('惠民保'));
+  assert.ok(rec.includes('防癌医疗'));
+
+  const check = await read('templates/new-policy-check.md');
+  for (const heading of ['健康告知', '免责条款', '等待期', '续保条件', '理赔流程']) {
+    const section = check.split(new RegExp(`^## .*${heading}.*$`, 'm'))[1];
+    assert.ok(section !== undefined, `缺少 ${heading}`);
+    const body = section.split(/^## /m)[0];
+    for (const label of ['去合同哪里找', '要核对什么', '记到台账哪个字段']) {
+      assert.ok(body.includes(label), `${heading} 缺少 ${label}`);
+    }
+  }
+  // 引用的台账字段必须真实存在于 policy.md
+  const policy = await read('templates/policy.md');
+  const fields = [...check.matchAll(/记到台账哪个字段：(.+)/g)].flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((x) => x[1]));
+  assert.ok(fields.length >= 5);
+  for (const field of fields) assert.ok(policy.includes(`- ${field}：`), `policy.md 无字段 ${field}`);
+});
