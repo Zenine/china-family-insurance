@@ -392,6 +392,28 @@
     td.premium { min-width: 72px; }
     td.advice { min-width: 160px; }
 
+    tr.policy-main td { border-bottom: none; padding-bottom: 4px; }
+    tr.policy-extra td { min-width: 0; padding-top: 0; font-weight: 400; }
+    tr.policy-extra td::before { display: none; }
+
+    .policy-extra summary {
+      width: fit-content;
+      color: var(--blue);
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+
+    .claim-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 8px 16px;
+      margin: 8px 0 2px;
+    }
+
+    .claim-list div { min-width: 0; }
+    .claim-list dt { color: var(--muted); font-size: 11.5px; font-weight: 700; }
+    .claim-list dd { margin: 2px 0 0; line-height: 1.45; }
+
     .policy-resources {
       margin-top: 6px;
       font-weight: 400;
@@ -661,6 +683,21 @@
       return `<div class="policy-resources">${html || `<span class="member-note">联系方式：${PENDING}</span>`}</div>`;
     }
 
+    // 到期、宽限期与理赔字段折叠在保单行下方，表格不加列。
+    const CLAIM_FIELDS = [
+      ["保障到期日", "expiry"],
+      ["宽限期", "grace"],
+      ["报案时限", "claimDeadline"],
+      ["理赔材料（摘要）", "claimDocs"],
+      ["理赔渠道", "claimChannel"],
+      ["身故保额", "deathBenefit"]
+    ];
+
+    function renderPolicyClaim(policy) {
+      const items = CLAIM_FIELDS.map(([label, key]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(policy[key])}</dd></div>`).join("");
+      return `<details><summary>到期、宽限期与理赔</summary><dl class="claim-list">${items}</dl></details>`;
+    }
+
     function renderPolicies(member) {
       if (member.policies.length === 0) return '<div class="empty">当前筛选下没有保单。</div>';
       return `
@@ -680,7 +717,7 @@
             </thead>
             <tbody>
               ${member.policies.map((policy) => `
-                <tr>
+                <tr class="policy-main">
                   <td data-label="保单">${escapeHtml(policy.name)}<br><span class="member-note">${escapeHtml(policy.company)} · ${escapeHtml(policy.code)}</span>${renderPolicyResources(policy)}</td>
                   <td data-label="险种 / 档位"><span class="badge plain">${escapeHtml(policy.type)}</span> <span class="badge ${tierClass(policy.status)}">${escapeHtml(policy.status)}</span></td>
                   <td data-label="保单号" class="policy-id">${escapeHtml(policy.policyId)}</td>
@@ -689,6 +726,9 @@
                   <td data-label="保障期限">${escapeHtml(policy.term)}</td>
                   <td data-label="生效日 / 下次交费日">${escapeHtml(policy.renewal)}</td>
                   <td data-label="调整建议" class="advice">${escapeHtml(policy.note)}</td>
+                </tr>
+                <tr class="policy-extra">
+                  <td colspan="8">${renderPolicyClaim(policy)}</td>
                 </tr>
               `).join("")}
             </tbody>

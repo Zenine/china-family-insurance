@@ -3,6 +3,7 @@
 // 生成 <库目录>/site/index.html：明文总览 + 口令加密的明细。
 // --out 改写输出位置：只接受库目录内、以 .html 结尾的相对路径。
 // 口令来源: DASHBOARD_PASSPHRASE → <库目录>/.private/dashboard-passphrase → 交互输入。
+// DASHBOARD_TODAY=YYYY-MM-DD 固定生成日期与待办基准日，只用于可复现的示例构建；默认取当天。
 
 import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
@@ -10,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { encryptText, decryptPayload, resolvePassphrase } from './lib/crypto.mjs';
 import { buildDashboardData } from './lib/dashboard-data.mjs';
+import { parseDates } from './lib/ledger.mjs';
 
 const TEMPLATE = fileURLToPath(new URL('../dashboard/index.html', import.meta.url));
 const INJECTION = {
@@ -87,13 +89,19 @@ async function main() {
     process.exit(2);
   }
 
+  const today = process.env.DASHBOARD_TODAY;
+  if (today !== undefined && today !== '' && parseDates(today)[0] !== today) {
+    console.error('失败: DASHBOARD_TODAY 必须是合法日期 YYYY-MM-DD');
+    process.exit(2);
+  }
+
   assertPrivateIgnored(libraryDir);
   const passphrase = await resolvePassphrase({
     env: process.env,
     libraryDir,
     interactive: Boolean(process.stdin.isTTY)
   });
-  const { overview, detail, warnings } = await buildDashboardData(libraryDir);
+  const { overview, detail, warnings } = await buildDashboardData(libraryDir, { today: today || undefined });
   for (const warning of warnings) console.error(`警告: ${warning}`);
   const detailText = JSON.stringify(detail);
   const payload = await encryptText(detailText, passphrase);

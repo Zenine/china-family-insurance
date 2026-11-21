@@ -18,6 +18,7 @@ const SENSITIVE = ['示例医疗 A', '示例意外 B', '示例重疾 C', '示例
 function cleanEnv(extra = {}) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
   delete env.DASHBOARD_PASSPHRASE;
+  delete env.DASHBOARD_TODAY;
   return { ...env, ...extra };
 }
 
@@ -314,4 +315,68 @@ test('encrypt.mjs 用 --library 指定口令文件所在的库目录', async () 
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test('DASHBOARD_TODAY 固定生成日期与待办基准日', async () => {
+  const { root, library } = await copyFixture();
+  try {
+    const result = runBuild(library, { DASHBOARD_PASSPHRASE: 'test-pass', DASHBOARD_TODAY: '2026-11-20' });
+    assert.equal(result.status, 0, result.stderr);
+    const html = await readFile(path.join(library, 'site', 'index.html'), 'utf8');
+    assert.equal(extractConst(html, 'DASHBOARD_OVERVIEW').generatedAt, '2026-11-20');
+    const detail = JSON.parse(await decryptPayload(extractConst(html, 'ENCRYPTED_DASHBOARD'), 'test-pass'));
+    assert.deepEqual(detail, (await buildDashboardData(library, { today: '2026-11-20' })).detail);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('DASHBOARD_TODAY 不是合法 YYYY-MM-DD 时退出码 2，不写文件', async () => {
+  const { root, library } = await copyFixture();
+  try {
+    for (const value of ['20261120', '2026-02-30', '2026-11-20x', 'today']) {
+      const result = runBuild(library, { DASHBOARD_PASSPHRASE: 'test-pass', DASHBOARD_TODAY: value });
+      assert.equal(result.status, 2, `DASHBOARD_TODAY=${value} 应退出码 2`);
+      assert.match(result.stderr, /DASHBOARD_TODAY/);
+    }
+    assert.equal(existsSync(path.join(library, 'site', 'index.html')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// 在 vm 里跑模板脚本：document 换成什么都接受的空壳，只取渲染函数用。
+async function loadTemplateFunctions() {
+  const { runInNewContext } = await import('node:vm');
+  const template = await readFile(fileURLToPath(new URL('../dashboard/index.html', import.meta.url)), 'utf8');
+  const script = /<script>([\s\S]*?)<\/script>/.exec(template)[1];
+  const element = new Proxy(function () {}, {
+    get: (target, key) => (key === 'hidden' ? true : key === Symbol.toPrimitive ? () => '' : element),
+    set: () => true,
+    apply: () => element
+  });
+  const context = { document: { querySelector: () => element, querySelectorAll: () => [], addEventListener: () => {} } };
+  runInNewContext(script, context);
+  return context;
+}
+
+test('明细表每份保单有可折叠的到期与理赔行，字段全部转义', async () => {
+  const { renderPolicies } = await loadTemplateFunctions();
+  const policy = {
+    name: '示例医疗 A', company: '示例保险甲', type: '医疗', code: 'medical-a', term: '1 年', status: '充分',
+    premium: '300 元', renewal: '2026-01-01 / 2027-01-01', sumInsured: '200 万', policyId: '末 4 位 0001', note: '续保',
+    contacts: [], links: [], documents: [],
+    expiry: '2026-12-31', grace: '60 天', claimDeadline: '10 日内', claimDocs: '发票<img src=x onerror=alert(1)>',
+    claimChannel: '官方 App', deathBenefit: '0 万元'
+  };
+  const html = renderPolicies({ name: '本人', policies: [policy] });
+  assert.equal((html.match(/<details/g) ?? []).length, 1);
+  for (const label of ['保障到期日', '宽限期', '报案时限', '理赔材料（摘要）', '理赔渠道', '身故保额']) {
+    assert.ok(html.includes(label), `缺少 ${label}`);
+  }
+  for (const value of ['2026-12-31', '60 天', '10 日内', '官方 App', '0 万元']) assert.ok(html.includes(value), `缺少 ${value}`);
+  assert.ok(html.includes('发票&lt;img src=x onerror=alert(1)&gt;'));
+  assert.equal(html.includes('<img'), false);
+  const columns = (/<thead>[\s\S]*?<\/thead>/.exec(html)[0].match(/<th>/g) ?? []).length;
+  assert.ok(html.includes(`colspan="${columns}"`), '折叠行应横跨整张表');
 });
