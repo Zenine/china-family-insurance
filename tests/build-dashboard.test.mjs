@@ -105,6 +105,7 @@ test('无口令时失败退出且不写文件', async () => {
   try {
     const result = runBuild(library, { DASHBOARD_PASSPHRASE: '' });
     assert.notEqual(result.status, 0);
+    assert.equal(result.stderr.includes('DASHBOARD_TODAY'), false, '未设 DASHBOARD_TODAY 时不打印警告');
     assert.match(result.stderr, /失败: 未提供家庭口令（三种来源见 references\/15-总览页与加密\.md）/);
     assert.equal(existsSync(path.join(library, 'site', 'index.html')), false);
   } finally {
@@ -322,6 +323,7 @@ test('DASHBOARD_TODAY 固定生成日期与待办基准日', async () => {
   try {
     const result = runBuild(library, { DASHBOARD_PASSPHRASE: 'test-pass', DASHBOARD_TODAY: '2026-11-20' });
     assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /警告: 使用 DASHBOARD_TODAY=2026-11-20 固定日期，仅用于示例与测试/);
     const html = await readFile(path.join(library, 'site', 'index.html'), 'utf8');
     assert.equal(extractConst(html, 'DASHBOARD_OVERVIEW').generatedAt, '2026-11-20');
     const detail = JSON.parse(await decryptPayload(extractConst(html, 'ENCRYPTED_DASHBOARD'), 'test-pass'));

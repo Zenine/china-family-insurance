@@ -97,9 +97,9 @@ npx skills add Zenine/china-family-insurance
 
 ## 相关项目
 
-- [safeCare](https://github.com/iciuu/safeCare)：针对单份保单做条款问答和理赔实操；本项目管的是全家多份保单的长期台账，两者可以配合使用。
+- [safeCare](https://github.com/iciuu/safeCare)：本机 Web 应用，把保单 PDF 拆成带页码出处的条款要素，可按条款估算赔付；本项目是 markdown 文件库加 AI 方法，不估算赔付金额。
 - [family-insurance-manager](https://github.com/Zuomeng00/family-insurance-manager)：应用形态的缴费看板与提醒；本项目是 markdown 文件库加 AI 方法，不需要部署应用。
-- [lhg-insurance](https://github.com/lhg-plugs/lhg-insurance)：条款五查与合规自检；本项目的新保单五查是收到保单后的一页核对清单，核对结果落进家庭台账。
+- [lhg-insurance](https://github.com/lhg-plugs/lhg-insurance)：Claude Code 插件，按家庭结构做寿险、重疾、医疗、意外四险种缺口分析、配置方案与条款坑点检查（免责、等待期、续保）；本项目侧重全家保单的长期台账、理赔与投保后操作。
 
 ## 定位
 

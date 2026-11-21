@@ -94,6 +94,7 @@ async function main() {
     console.error('失败: DASHBOARD_TODAY 必须是合法日期 YYYY-MM-DD');
     process.exit(2);
   }
+  if (today) console.error(`警告: 使用 DASHBOARD_TODAY=${today} 固定日期，仅用于示例与测试`);
 
   assertPrivateIgnored(libraryDir);
   const passphrase = await resolvePassphrase({
