@@ -42,6 +42,14 @@ async function exists(rel) {
   }
 }
 
+// 真实产品常见的「名称 + 期号」写法（如「某某 8 号」）；监管令的「YYYY 年第 N 号」文号先剔除再查。
+const PRODUCT_NUMBER = /[\u4e00-\u9fa5]{2,8}\s?\d{1,2}\s?号/g;
+const DECREE_NUMBER = /\d{4}\s?年第\s?\d{1,3}\s?号/g;
+
+export function productNameHits(markdown) {
+  return [...markdown.replace(DECREE_NUMBER, '').matchAll(PRODUCT_NUMBER)].map((m) => m[0]);
+}
+
 export function skillPaths(markdown) {
   return [...markdown.matchAll(SKILL_PATH)].map((m) => m[0].replace(/[.,:;]+$/, ''));
 }
@@ -87,8 +95,15 @@ test('references 不点名真实产品', async () => {
   const files = (await readdir(REFERENCES)).filter((name) => name.endsWith('.md'));
   for (const name of files) {
     const text = await readFile(path.join(REFERENCES, name), 'utf8');
-    assert.doesNotMatch(text, /[\u4e00-\u9fa5]{2,8}\s?\d{1,2}\s?号/, `${name} 疑似点名产品`);
+    assert.deepEqual(productNameHits(text), [], `${name} 疑似点名产品`);
   }
+});
+
+test('产品名检查：放过监管令文号，仍拦产品期号', () => {
+  assert.deepEqual(productNameHits('《健康保险管理办法》（中国银保监会令 2019 年第 3 号）第十五条'), []);
+  assert.deepEqual(productNameHits('（银保监会令2022年第8号）'), []);
+  assert.deepEqual(productNameHits('买示例宝 3 号'), ['买示例宝 3 号']);
+  assert.deepEqual(productNameHits('示例宝3号'), ['示例宝3号']);
 });
 
 test('路径提取：识别 skill 路径，忽略库内路径', () => {
