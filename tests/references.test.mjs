@@ -25,7 +25,8 @@ const CHAPTERS = [
   '16-资料收集与问诊.md',
   '17-推荐方案输出.md',
   '18-常见问题.md',
-  '19-理赔与报案.md'
+  '19-理赔与报案.md',
+  '20-投保后操作.md'
 ];
 
 // 指向 skill 内部的相对路径：以 scripts/ templates/ examples/ references/ dashboard/ 开头。
