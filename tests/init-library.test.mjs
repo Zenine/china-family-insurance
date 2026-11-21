@@ -62,6 +62,15 @@ test('空目录生成完整库结构', async () => {
     assert.ok(agents.split('\n').includes(`- version: ${SKILL_VERSION}`));
     assert.ok(agents.includes('.private/dashboard-passphrase'));
     assert.ok(!agents.includes('{{'));
+    assert.equal(SKILL_VERSION, '0.2.0');
+    assert.ok(agents.includes('库内已定裁决优先于 skill 默认规则'));
+    assert.ok(agents.includes('指出一次差异'));
+    assert.ok(agents.includes('决策记录.md'));
+
+    const decisions = await readFile(path.join(lib, '决策记录.md'), 'utf8');
+    assert.ok(decisions.split('\n').includes('| 日期 | 裁决 | 理由 | 影响的规则 |'));
+    assert.ok(decisions.includes('库内已定裁决优先于 skill 默认规则'));
+    assert.ok(!decisions.includes('{{'));
 
     assert.match(result.stdout, /AGENTS\.md/);
   });
@@ -99,12 +108,16 @@ test('再次运行不改动已有文件的内容与 mtime，并列出跳过项',
     const past = new Date('2020-01-01T00:00:00Z');
     for (const file of (await snapshot(lib)).keys()) await utimes(path.join(lib, file), past, past);
 
+    await writeFile(path.join(lib, '决策记录.md'), '| 日期 | 裁决 | 理由 | 影响的规则 |\n|---|---|---|---|\n| 2026-11-20 | 已填 | x | y |\n');
+    await utimes(path.join(lib, '决策记录.md'), past, past);
+
     const before = await snapshot(lib);
     const result = runInit(lib);
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(await snapshot(lib), before);
     assert.match(result.stdout, /跳过/);
     assert.match(result.stdout, /members\/self\.md/);
+    assert.match(result.stdout, /决策记录\.md/);
   });
 });
 

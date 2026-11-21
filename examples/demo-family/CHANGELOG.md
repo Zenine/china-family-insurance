@@ -5,3 +5,4 @@
 - 2026-11-20 完成缺口矩阵与配置建议（recommendations/2026-11-20.md）
 - 2026-11-20 妈妈、外婆备注记已确认无其他保单（members/spouse.md、members/mother.md），重建总览页
 - 2026-11-20 升级到 china-family-insurance 0.1.1，重建总览页
+- 2026-11-21 升级到 china-family-insurance 0.2.0，新增决策记录.md

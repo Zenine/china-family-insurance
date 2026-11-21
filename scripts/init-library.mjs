@@ -95,6 +95,7 @@ export async function initLibrary(targetDir, { members = DEFAULT_MEMBERS, today 
   await ensureDir('recommendations');
   await ensureFile('recommendations/_template.md', 'recommendation.md');
   await ensureFile('资料收集清单.md', 'intake-checklist.md');
+  await ensureFile('决策记录.md', 'decisions.md');
   await ensureFile('TODO.md', 'TODO.md');
   await ensureFile('CHANGELOG.md', 'CHANGELOG.md');
   await ensureDir('.private', 0o700);

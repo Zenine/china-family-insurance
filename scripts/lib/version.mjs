@@ -1,2 +1,2 @@
 // skill 版本号的唯一来源。
-export const SKILL_VERSION = '0.1.1';
+export const SKILL_VERSION = '0.2.0';
