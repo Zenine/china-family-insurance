@@ -73,7 +73,7 @@ test('SKILL.md 与 README 引用的仓库内相对路径都存在', async () => 
   assert.deepEqual(missing, []);
 });
 
-test('SKILL.md 按场景指向全部 18 章', async () => {
+test('SKILL.md 按场景指向全部章节', async () => {
   const text = await read('SKILL.md');
   const linked = new Set(skillPaths(text).filter((p) => p.startsWith('references/')));
   for (const ref of await referenceFiles()) assert.ok(linked.has(ref), `SKILL.md 未指向 ${ref}`);
