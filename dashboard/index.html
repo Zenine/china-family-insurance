@@ -161,7 +161,8 @@
 
     .unlock-message.error { color: var(--red); }
 
-    .overview-panel {
+    .overview-panel,
+    .todo-panel {
       border: 1px solid var(--line-strong);
       border-radius: var(--radius);
       background: rgba(255, 253, 248, .94);
@@ -171,7 +172,8 @@
       font-family: var(--sans);
     }
 
-    .overview-panel h2 {
+    .overview-panel h2,
+    .todo-panel h2 {
       margin: 0 0 10px;
       font-family: var(--serif);
       font-size: 26px;
@@ -231,6 +233,11 @@
     .badge.plain { color: var(--ink); background: transparent; border-color: var(--line-strong); font-weight: 500; }
 
     .locked-detail[hidden] { display: none; }
+
+    .todo-panel { margin-top: 0; }
+    .todo-panel table td:first-child { min-width: 0; white-space: nowrap; }
+    .todo-panel tr.overdue td { color: #893b34; }
+    .todo-panel .legend { margin-top: 10px; }
 
     .toolbar {
       display: grid;
@@ -513,6 +520,10 @@
     </section>
 
     <section class="locked-detail" data-locked-detail hidden>
+      <section class="todo-panel" data-todos aria-label="近 60 天待办">
+        <h2>近 60 天待办</h2>
+        <div data-todo-body></div>
+      </section>
       <section class="toolbar" aria-label="筛选保单">
         <input class="search" type="search" placeholder="搜索成员、保单、公司、备注" aria-label="搜索保单" data-search>
         <div class="filters">
@@ -559,6 +570,7 @@
     }
 
     let MEMBERS = [];
+    let TODOS = [];
     let detailControlsWired = false;
     const state = { type: "all", query: "", member: "all" };
 
@@ -703,6 +715,43 @@
       `).join("") || '<div class="member-section empty">没有匹配结果。</div>';
     }
 
+    // 待办来自台账日期，不随搜索与筛选变化；日期已过的标「逾期」。
+    function renderTodos() {
+      const body = document.querySelector("[data-todo-body]");
+      if (TODOS.length === 0) {
+        body.innerHTML = '<div class="empty">近 60 天没有交费、到期或宽限期止的日期。</div>';
+        return;
+      }
+      const hint = TODOS.some((todo) => todo.overdue)
+        ? '<p class="legend">标「逾期」的日期已过：交费、续保或停保后把台账里的日期改成最新情况。</p>'
+        : "";
+      body.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>事项</th>
+                <th>成员</th>
+                <th>保单</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${TODOS.map((todo) => `
+                <tr class="${todo.overdue ? "overdue" : ""}">
+                  <td data-label="日期">${escapeHtml(todo.date)}${todo.overdue ? ' <span class="badge bad">逾期</span>' : ""}</td>
+                  <td data-label="事项">${escapeHtml(todo.kind)}</td>
+                  <td data-label="成员">${escapeHtml(todo.member)}</td>
+                  <td data-label="保单">${escapeHtml(todo.policy)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+        ${hint}
+      `;
+    }
+
     function render() {
       document.querySelectorAll("[data-type]").forEach((button) => {
         button.classList.toggle("active", button.dataset.type === state.type);
@@ -797,12 +846,14 @@
       try {
         const detail = await unlockDetail(password);
         MEMBERS = list(detail.members);
+        TODOS = list(detail.todos);
         document.querySelector("[data-locked-detail]").hidden = false;
         closeUnlockPanel();
         unlockToggle.textContent = "已解锁";
         unlockToggle.disabled = true;
         message.textContent = "";
         wireDetailControls();
+        renderTodos();
         render();
       } catch (error) {
         message.classList.add("error");

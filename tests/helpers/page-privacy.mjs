@@ -32,10 +32,10 @@ export function visibleText(html) {
     .replace(/&amp;/g, '&');
 }
 
-// 明细里不得进明文的取值：产品名、公司、保费、保额、电话原文。
+// 明细里不得进明文的取值：产品名、公司、保费、保额、身故保额、电话原文。
 export function detailSecrets(detail) {
   const values = detail.members.flatMap((member) => member.policies.flatMap((policy) => [
-    policy.name, policy.company, policy.premium, policy.sumInsured,
+    policy.name, policy.company, policy.premium, policy.sumInsured, policy.deathBenefit,
     ...policy.contacts.map((contact) => contact.label.replace(/^客服电话：/, ''))
   ]));
   return [...new Set(values.filter((value) => value && value !== '待补'))];

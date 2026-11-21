@@ -2,12 +2,14 @@
 
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { KINDS, parseFields, parseGapMatrix } from './ledger.mjs';
+import { KINDS, parseDates, parseFields, parseGapMatrix } from './ledger.mjs';
 
 const PENDING = '待补';
 const MEMBER_ORDER = ['self', 'spouse', 'daughter', 'son', 'father', 'mother'];
 const STATUS_FIELD = '覆盖充分 / 一般 / 不足';
 const ROLE_FIELD_PREFIX = '家庭角色';
+const RENEWAL_FIELD = '生效日 / 下次交费日';
+const TODO_WINDOW_DAYS = 60;
 
 // 「核保受限」间接披露健康状况，明文总览按「不足」显示，原档位只进加密明细。
 function overviewTier(tier) {
@@ -21,6 +23,32 @@ function orValue(value) {
 function formatDate(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// 在 YYYY-MM-DD 上加天数，按 UTC 计算避免时区与夏令时偏移。
+function addDays(isoDate, days) {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+// 宽限期按合同写天数，如「60 天」「30日」；认不出返回 null。
+function graceDays(value) {
+  const match = /(\d+)\s*[天日]/.exec(value ?? '');
+  return match ? Number(match[1]) : null;
+}
+
+// 一份保单的台账日期：下次交费日（该行第二个日期）、保障到期日、宽限期止日。
+function policyDates(fields) {
+  const items = [];
+  const nextPayment = parseDates(fields[RENEWAL_FIELD])[1];
+  if (nextPayment) {
+    items.push({ date: nextPayment, kind: '交费' });
+    const days = graceDays(fields['宽限期']);
+    if (days !== null) items.push({ date: addDays(nextPayment, days), kind: '宽限期止' });
+  }
+  const expiry = parseDates(fields['保障到期日'])[0];
+  if (expiry) items.push({ date: expiry, kind: '到期' });
+  return items;
 }
 
 async function listMarkdown(dir) {
@@ -86,8 +114,7 @@ function buildContacts(phone) {
   return [contact];
 }
 
-function buildPolicy(code, markdown) {
-  const fields = parseFields(markdown);
+function buildPolicy(code, fields) {
   return {
     name: orValue(fields['产品全称']),
     company: orValue(fields['保险公司']),
@@ -96,13 +123,19 @@ function buildPolicy(code, markdown) {
     term: orValue(fields['保障期限']),
     status: orValue(fields[STATUS_FIELD]),
     premium: orValue(fields['年保费']),
-    renewal: orValue(fields['生效日 / 下次交费日']),
+    renewal: orValue(fields[RENEWAL_FIELD]),
     sumInsured: orValue(fields['主险保额']),
     policyId: maskPolicyId(fields['保单号（脱敏）']),
     note: orValue(fields['续保或调整建议']),
     contacts: buildContacts(fields['客服电话']),
     links: [],
-    documents: []
+    documents: [],
+    expiry: orValue(fields['保障到期日']),
+    grace: orValue(fields['宽限期']),
+    claimDeadline: orValue(fields['报案时限']),
+    claimDocs: orValue(fields['理赔材料（摘要）']),
+    claimChannel: orValue(fields['理赔渠道']),
+    deathBenefit: orValue(fields['身故保额'])
   };
 }
 
@@ -114,6 +147,8 @@ export async function buildDashboardData(libraryDir, { today } = {}) {
   );
   const overviewMembers = [];
   const detailMembers = [];
+  const todos = [];
+  const windowEnd = addDays(generatedAt, TODO_WINDOW_DAYS);
 
   const memberIds = orderMembers(await listMarkdown(path.join(libraryDir, 'members')));
   for (const id of matrix.keys()) {
@@ -132,7 +167,14 @@ export async function buildDashboardData(libraryDir, { today } = {}) {
     const policyDir = path.join(libraryDir, 'policies', id);
     const policies = [];
     for (const code of await listMarkdown(policyDir)) {
-      policies.push(buildPolicy(code, await readFile(path.join(policyDir, `${code}.md`), 'utf8')));
+      const policyFields = parseFields(await readFile(path.join(policyDir, `${code}.md`), 'utf8'));
+      const policy = buildPolicy(code, policyFields);
+      policies.push(policy);
+      // 已过的日期一律列为逾期（不自动推算下一年），未来的只取 60 天内。
+      for (const { date, kind } of policyDates(policyFields)) {
+        if (date > windowEnd) continue;
+        todos.push({ date, kind, member: name, policy: policy.name, overdue: date < generatedAt });
+      }
     }
 
     overviewMembers.push({
@@ -152,7 +194,7 @@ export async function buildDashboardData(libraryDir, { today } = {}) {
 
   return {
     overview: { generatedAt, members: overviewMembers },
-    detail: { members: detailMembers },
+    detail: { members: detailMembers, todos: todos.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)) },
     warnings
   };
 }

@@ -125,7 +125,7 @@ test('已有 .gitignore 缺 .private/ 时追加一行，其余内容保留', asy
 test('模板字段与台账解析器一致', async () => {
   const templates = fileURLToPath(new URL('../templates/', import.meta.url));
   const policy = await readFile(path.join(templates, 'policy.md'), 'utf8');
-  for (const field of ['保单号（脱敏）', '保险公司', '客服电话', '产品全称', '险种分类', '保障期限', '年保费', '主险保额', '生效日 / 下次交费日']) {
+  for (const field of ['保单号（脱敏）', '保险公司', '客服电话', '产品全称', '险种分类', '保障期限', '年保费', '主险保额', '生效日 / 下次交费日', '保障到期日', '宽限期', '报案时限', '理赔材料（摘要）', '理赔渠道', '身故保额']) {
     assert.match(policy, new RegExp(`^- ${field.replace(/[()（）]/g, '\\$&')}：`, 'm'), field);
   }
   assert.match(policy, /^## 评估备注$/m);

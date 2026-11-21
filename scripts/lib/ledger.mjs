@@ -56,3 +56,14 @@ export function parseGapMatrix(markdown, warnings = []) {
   }
   return [];
 }
+
+// 文本中所有合法的 `YYYY-MM-DD`，按出现顺序；月日不成立的（如 2026-02-30）跳过。
+export function parseDates(text) {
+  const dates = [];
+  for (const match of String(text ?? '').matchAll(/(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/g)) {
+    const [, y, m, d] = match.map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    if (date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d) dates.push(match[0]);
+  }
+  return dates;
+}

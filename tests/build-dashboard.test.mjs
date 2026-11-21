@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decryptPayload } from '../scripts/lib/crypto.mjs';
 import { buildDashboardData } from '../scripts/lib/dashboard-data.mjs';
-import { assertPagePrivate, assertTemplateTermOnce, detailSecrets, extractConst } from './helpers/page-privacy.mjs';
+import { assertPagePrivate, assertTemplateTermOnce, detailSecrets, extractConst, plaintextLayer } from './helpers/page-privacy.mjs';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/mini-library', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('../scripts/build-dashboard.mjs', import.meta.url));
@@ -197,6 +197,65 @@ test('矩阵行对不上成员时构建照常完成，stderr 打印警告', asyn
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test('v0.1 台账（无新字段）构建成功，新字段为待补', async () => {
+  const { root, library } = await copyFixture();
+  try {
+    await rm(path.join(library, 'policies', 'spouse', 'accident-d.md'));
+    const result = runBuild(library, { DASHBOARD_PASSPHRASE: 'test-pass' });
+    assert.equal(result.status, 0, result.stderr);
+    const html = await readFile(path.join(library, 'site', 'index.html'), 'utf8');
+    const detail = JSON.parse(await decryptPayload(extractConst(html, 'ENCRYPTED_DASHBOARD'), 'test-pass'));
+    assert.ok(Array.isArray(detail.todos));
+    for (const policy of detail.members.flatMap((m) => m.policies)) {
+      for (const key of ['expiry', 'grace', 'claimDeadline', 'claimDocs', 'claimChannel', 'deathBenefit']) {
+        assert.equal(policy[key], '待补', `${policy.code} ${key}`);
+      }
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('近 60 天待办只在加密明细里：总览与明文层不含待办日期', async () => {
+  const { root, library } = await copyFixture();
+  try {
+    const policy = path.join(library, 'policies', 'spouse', 'accident-d.md');
+    // 把日期改成相对构建当天的日子，保证待办落在窗口内且与生成日期不同。
+    const now = new Date();
+    const shift = (days) => {
+      const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + days));
+      return d.toISOString().slice(0, 10);
+    };
+    const text = (await readFile(policy, 'utf8'))
+      .replace('2027-01-14', shift(20))
+      .replace('2026-01-15 / 2026-11-01', `${shift(-300)} / ${shift(-3)}`);
+    await writeFile(policy, text);
+    const result = runBuild(library, { DASHBOARD_PASSPHRASE: 'test-pass' });
+    assert.equal(result.status, 0, result.stderr);
+    const html = await readFile(path.join(library, 'site', 'index.html'), 'utf8');
+    const detail = JSON.parse(await decryptPayload(extractConst(html, 'ENCRYPTED_DASHBOARD'), 'test-pass'));
+    const kinds = detail.todos.filter((todo) => todo.policy === '示例意外 D').map((todo) => todo.kind).sort();
+    assert.deepEqual(kinds, ['交费', '到期', '宽限期止']);
+    assert.equal(detail.todos.find((todo) => todo.kind === '交费').overdue, true);
+    const plain = plaintextLayer(html);
+    for (const todo of detail.todos) assert.equal(plain.includes(todo.date), false, `明文层含 ${todo.date}`);
+    assertPagePrivate(html, detailSecrets(detail));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('模板在成员明细上方渲染近 60 天待办，逾期行带标记', async () => {
+  const template = await readFile(fileURLToPath(new URL('../dashboard/index.html', import.meta.url)), 'utf8');
+  const locked = template.indexOf('data-locked-detail');
+  const todos = template.indexOf('data-todos');
+  const layout = template.indexOf('class="layout"');
+  assert.ok(locked !== -1 && locked < todos && todos < layout, '待办区应在加密明细内、成员明细之上');
+  assert.ok(template.includes('近 60 天待办'));
+  assert.ok(template.includes('todo.overdue'));
+  assert.ok(template.includes('逾期'));
 });
 
 test('模板明细表有续保日期与保额两列', async () => {
