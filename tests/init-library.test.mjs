@@ -62,7 +62,6 @@ test('空目录生成完整库结构', async () => {
     assert.ok(agents.split('\n').includes(`- version: ${SKILL_VERSION}`));
     assert.ok(agents.includes('.private/dashboard-passphrase'));
     assert.ok(!agents.includes('{{'));
-    assert.equal(SKILL_VERSION, '0.2.0');
     assert.ok(agents.includes('库内已定裁决优先于 skill 默认规则'));
     assert.ok(agents.includes('指出一次差异'));
     assert.ok(agents.includes('决策记录.md'));

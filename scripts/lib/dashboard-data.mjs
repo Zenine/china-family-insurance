@@ -31,19 +31,47 @@ function addDays(isoDate, days) {
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-// 宽限期按合同写天数，如「60 天」「30日」；认不出返回 null。
-function graceDays(value) {
-  const match = /(\d+)\s*[天日]/.exec(value ?? '');
-  return match ? Number(match[1]) : null;
+// 「待补」「未识别」「不适用」开头或空值表示有意留空，解析不出日期或天数时不警告。
+function isPlaceholder(value) {
+  const text = (value ?? '').trim();
+  return !text || /^(待补|未识别|不适用)/.test(text);
 }
 
-// 一份保单的台账日期：下次交费日（该行第二个日期）、保障到期日、宽限期止日。
-function policyDates(fields) {
+// 宽限期取跟在数字后的「天/日」，跳过「每月 5 日」「每年 3 日」「第 1 日」这类日子，
+// 如「每月 5 日扣款后 30 天」取 30；认不出返回 null。
+function graceDays(value) {
+  for (const match of (value ?? '').matchAll(/(\d+)\s*[天日]/g)) {
+    const before = value.slice(0, match.index).trimEnd();
+    if (/(每月|每年|第)$/.test(before)) continue;
+    return Number(match[1]);
+  }
+  return null;
+}
+
+// 下次交费日只取「生效日 / 下次交费日」里「/」右侧的日期，如「待补 / 2027-01-15」取 2027-01-15；
+// 没有「/」时分不清是哪个日期，返回 null。
+function nextPaymentPart(value) {
+  const text = value ?? '';
+  const slash = text.search(/[\/／]/);
+  return slash === -1 ? null : text.slice(slash + 1);
+}
+
+// 一份保单的台账日期：下次交费日、保障到期日、宽限期止日；有内容却解析不出的记进 warnings。
+function policyDates(fields, label, warnings) {
   const items = [];
-  const nextPayment = parseDates(fields[RENEWAL_FIELD])[1];
+  const renewal = fields[RENEWAL_FIELD];
+  const paymentPart = nextPaymentPart(renewal);
+  const nextPayment = paymentPart === null ? undefined : parseDates(paymentPart)[0];
+  if (!nextPayment && !isPlaceholder(paymentPart === null ? renewal : paymentPart)) {
+    warnings.push(`保单「${label}」的「${RENEWAL_FIELD}」写的是「${renewal.trim()}」，「/」右侧没有 YYYY-MM-DD 格式的下次交费日，不进待办`);
+  }
+  const grace = fields['宽限期'];
+  const days = graceDays(grace);
+  if (days === null && !isPlaceholder(grace)) {
+    warnings.push(`保单「${label}」的宽限期「${grace.trim()}」认不出天数，不算宽限期止日`);
+  }
   if (nextPayment) {
     items.push({ date: nextPayment, kind: '交费' });
-    const days = graceDays(fields['宽限期']);
     if (days !== null) items.push({ date: addDays(nextPayment, days), kind: '宽限期止' });
   }
   const expiry = parseDates(fields['保障到期日'])[0];
@@ -171,7 +199,7 @@ export async function buildDashboardData(libraryDir, { today } = {}) {
       const policy = buildPolicy(code, policyFields);
       policies.push(policy);
       // 已过的日期一律列为逾期（不自动推算下一年），未来的只取 60 天内。
-      for (const { date, kind } of policyDates(policyFields)) {
+      for (const { date, kind } of policyDates(policyFields, `${policy.name}（policies/${id}/${code}.md）`, warnings)) {
         if (date > windowEnd) continue;
         todos.push({ date, kind, member: name, policy: policy.name, overdue: date < generatedAt });
       }

@@ -113,7 +113,7 @@ test('新字段解析：到期日、宽限期、理赔与身故保额', async ()
   const { detail } = await buildDashboardData(LIBRARY, { today: '2026-11-20' });
   const policy = detail.members.find((m) => m.id === 'spouse').policies.find((p) => p.code === 'accident-d');
   assert.equal(policy.expiry, '2027-01-14');
-  assert.equal(policy.grace, '60 天');
+  assert.equal(policy.grace, '30 天');
   assert.equal(policy.claimDeadline, '出险后 10 日内');
   assert.equal(policy.claimDocs, '理赔申请书、身份证明、医疗发票与病历');
   assert.equal(policy.claimChannel, '保险公司官方 App 或客服电话');
@@ -123,8 +123,8 @@ test('新字段解析：到期日、宽限期、理赔与身故保额', async ()
 test('todos 含交费、到期、宽限期止三类，逾期标 overdue，按日期升序', async () => {
   const { detail } = await buildDashboardData(LIBRARY, { today: '2026-11-20' });
   assert.deepEqual(detail.todos, [
-    { date: '2026-11-01', kind: '交费', member: '配偶', policy: '示例意外 D', overdue: true },
-    { date: '2026-12-31', kind: '宽限期止', member: '配偶', policy: '示例意外 D', overdue: false },
+    { date: '2026-11-15', kind: '交费', member: '配偶', policy: '示例意外 D', overdue: true },
+    { date: '2026-12-15', kind: '宽限期止', member: '配偶', policy: '示例意外 D', overdue: false },
     { date: '2027-01-01', kind: '交费', member: '本人', policy: '示例医疗 A', overdue: false },
     { date: '2027-01-14', kind: '到期', member: '配偶', policy: '示例意外 D', overdue: false }
   ]);
@@ -142,7 +142,7 @@ test('overview 序列化不含 todo 日期与产品名', async () => {
 });
 
 test('无新字段的库照常构建，新字段为待补', async () => {
-  await withPolicy('- 产品全称：P\n- 生效日 / 下次交费日：2025-01-03\n', `${MATRIX_HEAD}| self | 充分 | 充分 | 充分 | 充分 | 充分 |\n`, ({ detail, warnings }) => {
+  await withPolicy('- 产品全称：P\n- 生效日 / 下次交费日：2025-01-03 / 待补\n', `${MATRIX_HEAD}| self | 充分 | 充分 | 充分 | 充分 | 充分 |\n`, ({ detail, warnings }) => {
     const policy = detail.members[0].policies[0];
     for (const key of ['expiry', 'grace', 'claimDeadline', 'claimDocs', 'claimChannel', 'deathBenefit']) {
       assert.equal(policy[key], '待补', key);
@@ -325,8 +325,62 @@ for (const [grace, expected] of [['60 天', '2027-01-18'], ['30日', '2026-12-19
   });
 }
 
-test('下次交费日缺第二个日期时不出交费与宽限期止待办', async () => {
-  await withPolicy('- 产品全称：P\n- 宽限期：60 天\n- 生效日 / 下次交费日：2026-11-25\n', ALL_ADEQUATE, ({ detail }) => {
+test('下次交费日缺「/」右侧日期时不出交费与宽限期止待办，并给出警告', async () => {
+  await withPolicy('- 产品全称：P\n- 宽限期：60 天\n- 生效日 / 下次交费日：2026-11-25\n', ALL_ADEQUATE, ({ detail, warnings }) => {
     assert.deepEqual(detail.todos, []);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /P.*生效日 \/ 下次交费日.*2026-11-25/);
   }, '2026-11-20');
+});
+
+test('生效日待补时仍取「/」右侧的下次交费日', async () => {
+  await withPolicy('- 产品全称：P\n- 宽限期：30 天\n- 生效日 / 下次交费日：待补 / 2027-01-15\n', ALL_ADEQUATE, ({ detail, warnings }) => {
+    assert.deepEqual(detail.todos, [
+      { date: '2027-01-15', kind: '交费', member: '本人', policy: 'P', overdue: false }
+    ]);
+    assert.deepEqual(warnings, []);
+  }, '2026-11-20');
+});
+
+for (const renewal of ['待补', '2026-01-15 / 待补', '2026-01-15 / 未识别', '未识别', '2026-01-15 / 不适用（一次交清）', '']) {
+  test(`下次交费日「${renewal}」不出待办也不警告`, async () => {
+    await withPolicy(`- 产品全称：P\n- 生效日 / 下次交费日：${renewal}\n`, ALL_ADEQUATE, ({ detail, warnings }) => {
+      assert.deepEqual(detail.todos, []);
+      assert.deepEqual(warnings, []);
+    }, '2026-11-20');
+  });
+}
+
+for (const renewal of ['2026-01-15 / 每年 1 月', '待补 / 每年 1 月']) {
+  test(`下次交费日「${renewal}」右侧写了文字但没有日期时给出警告`, async () => {
+    await withPolicy(`- 产品全称：P\n- 生效日 / 下次交费日：${renewal}\n`, ALL_ADEQUATE, ({ warnings }) => {
+      assert.equal(warnings.length, 1);
+      assert.match(warnings[0], /每年 1 月/);
+    }, '2026-11-20');
+  });
+}
+
+for (const [grace, expected] of [
+  ['每月 5 日扣款后 30 天', '2026-12-19'],
+  ['自每年第 1 日起 60 天', '2027-01-18'],
+  ['每年 3 日后 60日', '2027-01-18']
+]) {
+  test(`宽限期「${grace}」取与宽限对应的天数，止日为 ${expected}`, async () => {
+    await withPolicy(`- 产品全称：P\n- 宽限期：${grace}\n- 生效日 / 下次交费日：2025-11-19 / 2026-11-19\n`, ALL_ADEQUATE, ({ detail, warnings }) => {
+      assert.equal(detail.todos.find((todo) => todo.kind === '宽限期止')?.date, expected);
+      assert.deepEqual(warnings, []);
+    }, '2026-11-20');
+  });
+}
+
+test('宽限期有文字但认不出天数时给出警告，待补、未识别与空值不警告', async () => {
+  await withPolicy('- 产品全称：P\n- 宽限期：按合同\n- 生效日 / 下次交费日：2025-11-19 / 2026-11-19\n', ALL_ADEQUATE, ({ warnings }) => {
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /P.*宽限期.*按合同/);
+  }, '2026-11-20');
+  for (const grace of ['待补', '未识别', '待补（推断一次交清）', '']) {
+    await withPolicy(`- 产品全称：P\n- 宽限期：${grace}\n- 生效日 / 下次交费日：2025-11-19 / 2026-11-19\n`, ALL_ADEQUATE, ({ warnings }) => {
+      assert.deepEqual(warnings, [], grace);
+    }, '2026-11-20');
+  }
 });

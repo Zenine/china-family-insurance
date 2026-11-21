@@ -12,7 +12,7 @@ import { assertPagePrivate, assertTemplateTermOnce, detailSecrets, extractConst,
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/mini-library', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('../scripts/build-dashboard.mjs', import.meta.url));
-const SENSITIVE = ['示例医疗 A', '示例意外 B', '示例重疾 C', '示例保险甲', '400-000-0001', '400-000-0003'];
+const SENSITIVE = ['示例医疗 A', '示例意外 B', '示例重疾 C', '示例意外 D', '示例保险甲', '示例保险丁', '400-000-0001', '400-000-0003', '400-000-0004'];
 
 // 测试可能在 git 钩子里运行，子进程不得继承 GIT_* 变量。
 function cleanEnv(extra = {}) {
@@ -232,7 +232,7 @@ test('近 60 天待办只在加密明细里：总览与明文层不含待办日�
     };
     const text = (await readFile(policy, 'utf8'))
       .replace('2027-01-14', shift(20))
-      .replace('2026-01-15 / 2026-11-01', `${shift(-300)} / ${shift(-3)}`);
+      .replace('2026-01-15 / 2026-11-15', `${shift(-300)} / ${shift(-3)}`);
     await writeFile(policy, text);
     const result = runBuild(library, { DASHBOARD_PASSPHRASE: 'test-pass' });
     assert.equal(result.status, 0, result.stderr);
@@ -242,7 +242,12 @@ test('近 60 天待办只在加密明细里：总览与明文层不含待办日�
     assert.deepEqual(kinds, ['交费', '到期', '宽限期止']);
     assert.equal(detail.todos.find((todo) => todo.kind === '交费').overdue, true);
     const plain = plaintextLayer(html);
-    for (const todo of detail.todos) assert.equal(plain.includes(todo.date), false, `明文层含 ${todo.date}`);
+    // 总览明文本来就写生成日期，与它相同的待办日期不算泄露。
+    const { generatedAt } = extractConst(html, 'DASHBOARD_OVERVIEW');
+    for (const todo of detail.todos) {
+      if (todo.date === generatedAt) continue;
+      assert.equal(plain.includes(todo.date), false, `明文层含 ${todo.date}`);
+    }
     assertPagePrivate(html, detailSecrets(detail));
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -12,6 +12,7 @@
 - `analysis/gap_matrix.md`：缺口矩阵，档位取 `充分 / 一般 / 不足 / 缺资料 / 不适用 / 核保受限`；`analysis/_review-template.md` 是年度检视模板。
 - `recommendations/`：配置建议，按 `recommendations/_template.md` 写。
 - `资料收集清单.md`：首次建档要准备的资料。
+- `新保单五查.md`：新买、续保或换保单时逐项核对合同的清单。
 - `决策记录.md`：本人裁决，每条记日期、裁决、理由、影响的规则。
 - `site/index.html`：总览页，由 build-dashboard 生成，不手改。
 
