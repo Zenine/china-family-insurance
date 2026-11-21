@@ -1,6 +1,6 @@
 # 配置建议：YYYY-MM-DD
 
-> 复制为 `recommendations/YYYY-MM-DD.md`。建议到险种与保额层，默认不点名具体产品；用户主动要求时，由用户自己的 AI 当场联网查询，并写明查询日期与来源。
+> 复制为 `recommendations/YYYY-MM-DD.md` 或 `recommendations/YYYY-MM-DD-<主题>.md`，库里已有命名惯例的照惯例。建议到险种与保额层，默认不点名具体产品；用户主动要求时，由用户自己的 AI 当场联网查询，并写明查询日期与来源。
 
 ## 家庭概况
 - 成员与年龄：
