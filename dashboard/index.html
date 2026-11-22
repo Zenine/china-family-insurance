@@ -161,6 +161,28 @@
 
     .unlock-message.error { color: var(--red); }
 
+    .unlock-remember {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .forget-pass {
+      border: 1px solid var(--line, #d0d7de);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .forget-pass:hover { color: var(--ink); }
+
     .overview-panel,
     .todo-panel {
       border: 1px solid var(--line-strong);
@@ -529,9 +551,11 @@
               <input type="password" autocomplete="current-password" aria-label="家庭口令" placeholder="家庭口令" data-password>
               <button type="submit">解锁</button>
             </form>
+            <label class="unlock-remember"><input type="checkbox" data-remember>在本设备记住口令</label>
             <p class="unlock-message" data-unlock-message></p>
           </div>
         </section>
+        <button class="forget-pass" type="button" data-forget hidden>忘记本设备口令</button>
       </div>
     </header>
 
@@ -867,20 +891,42 @@
       }
     });
 
-    document.querySelector("[data-unlock-form]").addEventListener("submit", async (event) => {
-      event.preventDefault();
+    // 「在本设备记住口令」：口令以明文存进本机浏览器存储，只适合本人专用设备。
+    // 存储键带页面路径，同一域名下多份总览页互不覆盖；存储不可用（隐私模式、沙箱）时静默降级。
+    function rememberStore() {
+      try {
+        const key = "cfi-dashboard-passphrase:" + window.location.pathname;
+        const probe = key + ":probe";
+        window.localStorage.setItem(probe, "1");
+        window.localStorage.removeItem(probe);
+        return {
+          ok: true,
+          get: () => window.localStorage.getItem(key),
+          set: (value) => window.localStorage.setItem(key, value),
+          clear: () => window.localStorage.removeItem(key),
+        };
+      } catch (error) {
+        return { ok: false, get: () => null, set: () => {}, clear: () => {} };
+      }
+    }
+
+    const passStore = rememberStore();
+    const forgetButton = document.querySelector("[data-forget]");
+    const rememberBox = document.querySelector("[data-remember]");
+    if (!passStore.ok && rememberBox) rememberBox.closest("label").hidden = true;
+
+    async function tryUnlock(password, remember) {
       const message = document.querySelector("[data-unlock-message]");
-      const password = document.querySelector("[data-password]").value;
       message.classList.remove("error");
       if (!ENCRYPTED_DASHBOARD) {
         message.classList.add("error");
         message.textContent = "本页没有加密明细。";
-        return;
+        return false;
       }
       if (!window.crypto || !window.crypto.subtle) {
         message.classList.add("error");
         message.textContent = "当前浏览器不支持本地解密。";
-        return;
+        return false;
       }
       message.textContent = "正在解锁…";
       try {
@@ -892,16 +938,44 @@
         unlockToggle.textContent = "已解锁";
         unlockToggle.disabled = true;
         message.textContent = "";
+        if (remember) passStore.set(password);
+        if (forgetButton) forgetButton.hidden = !passStore.get();
         wireDetailControls();
         renderTodos();
         render();
+        return true;
       } catch (error) {
         message.classList.add("error");
         message.textContent = "口令不对，请重试";
+        return false;
       }
+    }
+
+    document.querySelector("[data-unlock-form]").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = document.querySelector("[data-password]").value;
+      await tryUnlock(password, Boolean(rememberBox && rememberBox.checked));
+    });
+
+    if (forgetButton) forgetButton.addEventListener("click", () => {
+      passStore.clear();
+      forgetButton.hidden = true;
     });
 
     renderOverview();
+
+    const savedPassphrase = passStore.get();
+    if (savedPassphrase) {
+      tryUnlock(savedPassphrase, false).then((ok) => {
+        if (!ok) {
+          passStore.clear();
+          if (forgetButton) forgetButton.hidden = true;
+          const message = document.querySelector("[data-unlock-message]");
+          message.classList.add("error");
+          message.textContent = "记住的口令已失效，请重新输入。";
+        }
+      });
+    }
   </script>
 </body>
 </html>

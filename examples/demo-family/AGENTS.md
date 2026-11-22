@@ -1,7 +1,7 @@
 # 库规则（本库必须为私有仓库或仅本地保存）
 
 - skill: china-family-insurance
-- version: 0.2.0
+- version: 0.2.1
 
 本库是一个家庭的保险资料库，由 skill `china-family-insurance` 建立和维护。内容是方法与工具产出的整理结果，不是持牌保险建议。
 

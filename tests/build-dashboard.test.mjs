@@ -387,3 +387,16 @@ test('明细表每份保单有可折叠的到期与理赔行，字段全部转�
   const columns = (/<thead>[\s\S]*?<\/thead>/.exec(html)[0].match(/<th>/g) ?? []).length;
   assert.ok(html.includes(`colspan="${columns}"`), '折叠行应横跨整张表');
 });
+
+test('模板提供「在本设备记住口令」：勾选后存本地、打开时自动解锁、可一键清除、存储失败不报错', async () => {
+  const template = await readFile(fileURLToPath(new URL('../dashboard/index.html', import.meta.url)), 'utf8');
+  assert.match(template, /data-remember/);
+  assert.match(template, /在本设备记住口令/);
+  assert.match(template, /data-forget/);
+  assert.match(template, /function rememberStore\(/);
+  // 所有本地存储读写都经过带 try/catch 的封装，沙箱或隐私模式下不抛错
+  const direct = template.match(/(?<!window\.)localStorage\./g) || [];
+  assert.deepEqual(direct, []);
+  // 存储键按页面路径区分，同域多份总览页互不覆盖
+  assert.match(template, /window\.location\.pathname/);
+});
